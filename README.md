@@ -1,50 +1,67 @@
-Política de Privacidade da Drowed Store no Discord
+# Resale Hub
 
-1. Introdução
+Painel web para **automatizar revenda de contas**: compras na **LZT Market** (API) e publicação automática na **GameBoost** (API oficial) e **GamerMarkt** (adaptador + fila manual quando não houver API).
 
-A Drowed Store valoriza a privacidade de seus usuários e está comprometida em proteger suas informações pessoais. Esta Política de Privacidade explica como coletamos, usamos, divulgamos e protegemos as informações fornecidas por você ao utilizar nossa loja de vendas no Discord.
+## Fluxo
 
-2. Informações que Coletamos
+1. Configure tokens em **APIs** (LZT + GameBoost obrigatórios para automação completa).
+2. **Sincronizar compras LZT** — lê `GET /user/{user_id}/orders`, importa itens novos.
+3. Para cada conta: gera **título/descrição** a partir dos modelos (placeholders `{{rank}}`, `{{level}}`, etc.), calcula **preço com markup**, busca **imagens** do anúncio LZT.
+4. Enfileira jobs `publish_gameboost` e `publish_gamermarkt`.
+5. GameBoost: `POST /v2/account-offers/create` + `POST /v2/account-offers/{id}/list`.
+6. GamerMarkt: tenta API se `GAMERMARKT_API_BASE` + chave estiverem definidos; senão status `pending_gamermarkt_manual`.
 
-2.1. Informações Pessoais Fornecidas pelo Usuário: Ao utilizar nossos serviços, podemos coletar informações como seu nome, e-mail, endereço de entrega, e informações de pagamento.
-2.2. Informações Automáticas: Podemos coletar informações automaticamente sobre sua interação com nosso servidor, incluindo o seu nome de usuário do Discord, ID de usuário e outras informações que você possa compartilhar no chat.
-2.3. Comunicações: Armazenamos mensagens e interações que você possa ter conosco para melhorar nosso serviço e para fins de suporte ao cliente.
+Também é possível **fast-buy** (`POST /{item_id}/fast-buy`) direto pelo painel.
 
-3. Uso das Informações Coletadas
+## Requisitos
 
-3.1. Processamento de Pedidos: Usamos suas informações pessoais para processar pedidos, receber pagamentos e entregar produtos.
-3.2. Comunicações: Utilizamos suas informações para entrar em contato com você sobre pedidos, enviar atualizações de produtos ou responder a consultas de suporte.
-3.3. Melhoria de Serviços: As informações podem ser usadas para melhorar nossos produtos, serviços e a experiência do usuário no servidor.
+- Node.js 20+
+- Conta LZT com token API (escopo **market**)
+- Conta GameBoost Partner com API key
 
-4. Compartilhamento de Informações
+## Instalação
 
-4.1. Parceiros de Pagamento: Podemos compartilhar suas informações com terceiros responsáveis pelo processamento de pagamentos. Esses parceiros de pagamento têm suas próprias políticas de privacidade e práticas de segurança.
-4.2. Conformidade Legal: Podemos divulgar suas informações se exigido por lei ou se acreditarmos que tal ação é necessária para cumprir uma ordem judicial, processo legal, ou para proteger nossos direitos.
+```bash
+cp .env.example .env
+npm install
+npm run dev
+```
 
-5. Segurança das Informações
+- API: `http://localhost:3000`
+- UI (dev): `http://localhost:5173` (proxy para `/api`)
 
-5.1. Medidas de Segurança: Implementamos medidas de segurança para proteger suas informações pessoais contra acesso não autorizado, alteração, divulgação ou destruição.
-5.2. Limitações: Apesar dos nossos esforços para proteger suas informações, nenhuma transmissão de dados pela internet ou método de armazenamento eletrônico é 100% seguro.
+Produção:
 
-6. Retenção de Dados
+```bash
+npm run build
+npm start
+```
 
-6.1. Período de Retenção: Manteremos suas informações pessoais apenas pelo tempo necessário para cumprir os propósitos descritos nesta Política de Privacidade, a menos que um período de retenção maior seja exigido ou permitido por lei.
-6.2. Exclusão de Dados: Você pode solicitar a exclusão de suas informações pessoais a qualquer momento, enviando uma mensagem direta para [Usuário de Contato].
+Na primeira entrada no painel, a senha que você digitar vira a senha de administrador.
 
-7. Direitos do Usuário
+## Variáveis de ambiente
 
-7.1. Acesso e Correção: Você tem o direito de acessar e corrigir suas informações pessoais.
-7.2. Retirada de Consentimento: Você pode retirar o seu consentimento para o uso de suas informações a qualquer momento, o que pode afetar o uso contínuo dos nossos serviços.
+| Variável | Descrição |
+|----------|-----------|
+| `PORT` | Porta do servidor (padrão 3000) |
+| `APP_SECRET` | Assinatura do cookie de sessão |
+| `DATABASE_PATH` | Caminho do SQLite |
+| `LZT_API_BASE` | Padrão `https://prod-api.lzt.market` |
+| `GAMEBOOST_API_BASE` | Padrão `https://api.gameboost.com` |
+| `GAMERMARKT_API_BASE` | URL base opcional da GamerMarkt |
 
-8. Alterações na Política de Privacidade
+## Compliance
 
-8.1. A Drowed Store reserva-se o direito de atualizar esta Política de Privacidade a qualquer momento. Notificaremos os usuários sobre alterações importantes por meio de uma mensagem no servidor.
-8.2. É sua responsabilidade revisar esta Política de Privacidade periodicamente.
+- **GameBoost**: só liste contas que você já possui; a automação compra na LZT **antes** de publicar.
+- **GamerMarkt**: verifique o contrato de usuário da plataforma sobre revenda e origem do estoque.
+- Armazene credenciais com segurança; não exponha o painel na internet sem HTTPS e firewall.
 
-9. Contato
+## Documentação das APIs
 
-Se você tiver alguma dúvida ou preocupação sobre esta Política de Privacidade, entre em contato conosco através do canal de suporte no Discord ou envie uma mensagem direta para [Usuário de Contato].
+- [LZT Market API](https://lzt-market.readme.io/reference)
+- [GameBoost API](https://docs.gameboost.com/api/reference/account-offers/create-an-account-offer-new-format)
 
-10. Aceitação desta Política
+## Estrutura
 
-Ao utilizar nossos serviços, você reconhece que leu e concorda com esta Política de Privacidade. Se você não concordar com esta política, por favor, não utilize nossos serviços.
+- `server/` — Express, SQLite, clientes LZT/GameBoost/GamerMarkt, fila de jobs
+- `web/` — React + Vite + Tailwind (painel em português)
